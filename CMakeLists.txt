@@ -21,6 +21,8 @@ target_include_directories(fastpipe
 
 add_executable(producer examples/producer.c)
 add_executable(consumer examples/consumer.c)
+add_executable(benchmark examples/benchmark.c)
 
 target_link_libraries(producer PRIVATE fastpipe)
 target_link_libraries(consumer PRIVATE fastpipe)
+target_link_libraries(benchmark PRIVATE fastpipe)

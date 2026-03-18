@@ -5,7 +5,7 @@
 #include "fastpipe.h"
 
 int main(int argc, char **argv) {
-    uint32_t capacity = 16;
+    uint32_t capacity = 128;
     uint32_t element_size = sizeof(int);
     int err;
 
@@ -22,15 +22,13 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    int recv_count = 0;
-    while(recv_count < 10) {
-        int received;
-        err = fastpipe_pop(pipe, &received);
-        if(err) {
+    int recv_messages = 0;
+    while(recv_messages < 512) {
+        int message;
+        if(fastpipe_pop(pipe, &message) < 0)
             continue;
-        }
-        printf("Received %d\n", received);
-        recv_count++;
+        printf("Received %d\n", message);
+        recv_messages++;
     }
 
     fastpipe_destroy(pipe);
