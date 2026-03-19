@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
     struct timespec start, end;
     double pipe_elapsed_time, 
         fastpipe_elapsed_time,
+        fastpipe_zero_copy_time,
         fastpipe_large_elapsed_time,
         fastpipe_large_zero_copy_time;
     pid_t pid;
@@ -78,6 +79,42 @@ int main(int argc, char **argv) {
         (end.tv_nsec - start.tv_nsec) / 1e9;
         
     printf("FastPipe Execution time: %f seconds\n", fastpipe_elapsed_time);
+
+    unlink("/tmp/test");
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    if((pid = fork()) == 0) {
+        // Child process: Read from pipe
+        struct fastpipe *pipe = fastpipe_create("test", 1 << 15, sizeof(int));
+        fastpipe_bind(pipe, CONSUMER);
+        int message;
+        for(int i = 0; i < NUM_MESSAGES; i++) {
+            int *slot = fastpipe_peek(pipe);
+            message = *slot;
+            fastpipe_release(pipe);
+        }
+        fastpipe_destroy(pipe);
+        _exit(0);
+    } else {
+        // Parent process: Write to pipe
+        struct fastpipe *pipe = fastpipe_create("test", 1 << 15, sizeof(int));
+        fastpipe_bind(pipe, PRODUCER);
+        int message;
+        for(int i = 0; i < NUM_MESSAGES; i++) {
+            int *slot = fastpipe_reserve(pipe);
+            message = *slot;
+            fastpipe_commit(pipe);
+        }
+        fastpipe_destroy(pipe);
+        waitpid(pid, NULL, 0);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    fastpipe_zero_copy_time = 
+        (end.tv_sec - start.tv_sec) +
+        (end.tv_nsec - start.tv_nsec) / 1e9;
+        
+    printf("FastPipe Zero Copy Execution time: %f seconds\n", fastpipe_zero_copy_time);
+
 
     unlink("/tmp/test");
 

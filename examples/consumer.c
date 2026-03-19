@@ -22,12 +22,10 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    int recv_messages = 0;
-    while(recv_messages < 512) {
+    for(int i = 0; i < 512; i++) {
         int message;
         fastpipe_pop(pipe, &message, 1);
         printf("Received %d\n", message);
-        recv_messages++;
     }
 
     fastpipe_destroy(pipe);

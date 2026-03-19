@@ -22,12 +22,9 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    int sent_messages = 0;
-    while(sent_messages < 512) {
-        int message = sent_messages + 1;
-        fastpipe_push(pipe, &message, 1);
-        printf("Sent %d\n", message);
-        sent_messages++;
+    for(int i = 0; i < 512; i++) {
+        fastpipe_push(pipe, &i, 1);
+        printf("Sent %d\n", i);
     }
 
     fastpipe_destroy(pipe);
