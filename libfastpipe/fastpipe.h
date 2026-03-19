@@ -64,19 +64,53 @@ int fastpipe_bind(struct fastpipe *fastpipe, enum ROLE role);
  * Arguments:
  *     struct fastpipe *fastpipe - Push to this fastpipe.
  *     const void *msg - Push this message.
+ *     int block - Should this push block?
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
-int fastpipe_push(struct fastpipe *fastpipe, const void *msg);
+int fastpipe_push(struct fastpipe *fastpipe, const void *msg, int block);
 
 /*
  * Pop a message from the fastpipe.
  * Arguments:
  *     struct fastpipe *fastpipe - Pop from this fastpipe.
  *     void *msg - Pop message to this address.
+ *     int block - Should this pop block?
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
-int fastpipe_pop(struct fastpipe *fastpipe, void *msg);
+int fastpipe_pop(struct fastpipe *fastpipe, void *msg, int block);
+
+/*
+ * Zero copy API reserve new slot.
+ * Arguments:
+ *     struct fastpipe *fastpipe - Reserve a slot from this fastpipe.
+ * Returns:
+ *     void * - Pointer to the slot.
+ */
+void *fastpipe_reserve(struct fastpipe *fastpipe);
+
+/*
+ * Zero copy API to commit new slot.
+ * Arguments:
+ *     struct fastpipe *fastpipe - Commit the slot to this fastpipe.
+ */
+void fastpipe_commit(struct fastpipe *fastpipe);
+
+/*
+ * Zero copy API to peek new slot.
+ * Arguments:
+ *     struct fastpipe *fastpipe - Peek a slot from this fastpipe.
+ * Returns:
+ *     void * - Pointer to the slot.
+ */
+void *fastpipe_peek(struct fastpipe *fastpipe);
+
+/*
+ * Zero copy API to release new slot.
+ * Arguments:
+ *     struct fastpipe_ring *r - Release a slot from this fastpipe.
+ */
+void fastpipe_release(struct fastpipe *fastpipe);
 
 #endif

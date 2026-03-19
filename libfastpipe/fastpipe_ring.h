@@ -23,6 +23,18 @@ struct fastpipe_ring {
 
     // Consumer pops from this index
     uint32_t    tail;
+
+    // Padding to align on cacheline
+    char        _pad3[CACHE_SIZE-4];
+
+    // Signifies the buffer is no longer empty (reader can read)
+    uint32_t    not_empty;
+
+    // Padding to align on cacheline
+    char        _pad4[CACHE_SIZE-4];
+
+    // Signifies the buffer is no longer full (writer can write)
+    uint32_t    not_full;
 };
 
 /*
@@ -45,7 +57,27 @@ struct fastpipe_ring *fastpipe_ring_create(int fd, uint32_t capacity, uint32_t e
 void fastpipe_ring_destroy(struct fastpipe_ring *r);
 
 /*
- * Push to a fastpipe ring buffer.
+ * Attempt push to a fastpipe ring buffer.
+ * Arguments:
+ *     fastpipe_ring *r - Push to this ring.
+ *     const void *msg - Push this message.
+ * Returns:
+ *     int - 0 on success, -1 on failure.
+ */
+int try_fastpipe_ring_push(struct fastpipe_ring *r, const void *msg);
+
+/*
+ * Attempt pop from a fastpipe ring buffer.
+ * Arguments:
+ *     fastpipe_ring *r - Pop from this ring.
+ *     void *msg - Store the message here.
+ * Returns:
+ *     int - 0 on success, -1 on failure.
+ */
+int try_fastpipe_ring_pop(struct fastpipe_ring *r, void *msg);
+
+/*
+ * Blocking push (push to fastipe ring buffer only when able to).
  * Arguments:
  *     fastpipe_ring *r - Push to this ring.
  *     const void *msg - Push this message.
@@ -55,13 +87,45 @@ void fastpipe_ring_destroy(struct fastpipe_ring *r);
 int fastpipe_ring_push(struct fastpipe_ring *r, const void *msg);
 
 /*
- * Pop from a fastpipe ring buffer.
+ * Blocking pop (pop from fastpipe ring buffer only when able to).
  * Arguments:
  *     fastpipe_ring *r - Pop from this ring.
- *     void *msg - Store the message here.
+ *     void *msg - Pop to this address.
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
 int fastpipe_ring_pop(struct fastpipe_ring *r, void *msg);
+
+/*
+ * Zero copy API reserve new slot.
+ * Arguments:
+ *     struct fastpipe_ring *r - Reserve a slot from this ring.
+ * Returns:
+ *     void * - Pointer to the slot.
+ */
+void *fastpipe_ring_reserve(struct fastpipe_ring *r);
+
+/*
+ * Zero copy API to commit new slot.
+ * Arguments:
+ *     struct fastpipe_ring *r - Commit the slot to this ring.
+ */
+void fastpipe_ring_commit(struct fastpipe_ring *r);
+
+/*
+ * Zero copy API to peek new slot.
+ * Arguments:
+ *     struct fastpipe_ring *r - Peek a slot from this ring.
+ * Returns:
+ *     void * - Pointer to the slot.
+ */
+void *fastpipe_ring_peek(struct fastpipe_ring *r);
+
+/*
+ * Zero copy API to release new slot.
+ * Arguments:
+ *     struct fastpipe_ring *r - Release a slot from this ring.
+ */
+void fastpipe_ring_release(struct fastpipe_ring *r);
 
 #endif

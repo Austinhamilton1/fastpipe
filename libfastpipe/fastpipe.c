@@ -94,10 +94,11 @@ int fastpipe_bind(struct fastpipe *fastpipe, enum ROLE role) {
  * Arguments:
  *     struct fastpipe *fastpipe - Push to this fastpipe.
  *     const void *msg - Push this message.
+ *     int block - Should this push block?
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
-int fastpipe_push(struct fastpipe *fastpipe, const void *msg) {
+int fastpipe_push(struct fastpipe *fastpipe, const void *msg, int block) {
     // Ensure valid fastpipe
     if(!fastpipe)
         return -1;
@@ -111,7 +112,10 @@ int fastpipe_push(struct fastpipe *fastpipe, const void *msg) {
         return -1;
 
     // Push the message to the ring
-    return fastpipe_ring_push(fastpipe->ring, msg);
+    if(block)
+        return fastpipe_ring_push(fastpipe->ring, msg);
+    else
+        return try_fastpipe_ring_push(fastpipe->ring, msg);
 }
 
 /*
@@ -119,10 +123,11 @@ int fastpipe_push(struct fastpipe *fastpipe, const void *msg) {
  * Arguments:
  *     struct fastpipe *fastpipe - Pop from this fastpipe.
  *     void *msg - Pop message to this address.
+ *     int block - Should this pop block?
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
-int fastpipe_pop(struct fastpipe *fastpipe, void *msg) {
+int fastpipe_pop(struct fastpipe *fastpipe, void *msg, int block) {
     // Ensure valid fastpipe
     if(!fastpipe)
         return -1;
@@ -136,5 +141,96 @@ int fastpipe_pop(struct fastpipe *fastpipe, void *msg) {
         return -1;
 
     // Push the message to the ring
-    return fastpipe_ring_pop(fastpipe->ring, msg);
+    if(block)
+        return fastpipe_ring_pop(fastpipe->ring, msg);
+    else
+        return try_fastpipe_ring_pop(fastpipe->ring, msg);
+}
+
+/*
+ * Zero copy API reserve new slot.
+ * Arguments:
+ *     struct fastpipe *fastpipe - Reserve a slot from this fastpipe.
+ * Returns:
+ *     void * - Pointer to the slot.
+ */
+void *fastpipe_reserve(struct fastpipe *fastpipe) {
+    // Ensure valid fastpipe
+    if(!fastpipe)
+        return NULL;
+
+    // Ensure the correct role is reserving
+    if(fastpipe->role != PRODUCER)
+        return NULL;
+
+    // Ensure valid ring
+    if(!fastpipe->ring)
+        return NULL;
+
+    return fastpipe_ring_reserve(fastpipe->ring);
+}
+
+/*
+ * Zero copy API to commit new slot.
+ * Arguments:
+ *     struct fastpipe *fastpipe - Commit the slot to this fastpipe.
+ */
+void fastpipe_commit(struct fastpipe *fastpipe) {
+    // Ensure valid fastpipe
+    if(!fastpipe)
+        return;
+
+    // Ensure the correct role is reserving
+    if(fastpipe->role != PRODUCER)
+        return;
+
+    // Ensure valid ring
+    if(!fastpipe->ring)
+        return;
+
+    fastpipe_ring_commit(fastpipe->ring);
+}
+
+/*
+ * Zero copy API to peek new slot.
+ * Arguments:
+ *     struct fastpipe *fastpipe - Peek a slot from this fastpipe.
+ * Returns:
+ *     void * - Pointer to the slot.
+ */
+void *fastpipe_peek(struct fastpipe *fastpipe) {
+    // Ensure valid fastpipe
+    if(!fastpipe)
+        return NULL;
+
+    // Ensure the correct role is reserving
+    if(fastpipe->role != CONSUMER)
+        return NULL;
+
+    // Ensure valid ring
+    if(!fastpipe->ring)
+        return NULL;
+
+    return fastpipe_ring_peek(fastpipe->ring);
+}
+
+/*
+ * Zero copy API to release new slot.
+ * Arguments:
+ *     struct fastpipe_ring *r - Release a slot from this fastpipe.
+ */
+void fastpipe_release(struct fastpipe *fastpipe) {
+    // Ensure valid fastpipe
+    if(!fastpipe)
+        return;
+
+    // Ensure the correct role is reserving
+    if(fastpipe->role != CONSUMER)
+        return;
+
+    // Ensure valid ring
+    if(!fastpipe->ring)
+        return;
+
+    fastpipe_ring_release(fastpipe->ring);
 }

@@ -25,8 +25,7 @@ int main(int argc, char **argv) {
     int recv_messages = 0;
     while(recv_messages < 512) {
         int message;
-        if(fastpipe_pop(pipe, &message) < 0)
-            continue;
+        fastpipe_pop(pipe, &message, 1);
         printf("Received %d\n", message);
         recv_messages++;
     }

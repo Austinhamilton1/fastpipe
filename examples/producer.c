@@ -25,8 +25,7 @@ int main(int argc, char **argv) {
     int sent_messages = 0;
     while(sent_messages < 512) {
         int message = sent_messages + 1;
-        if(fastpipe_push(pipe, &message) < 0)
-            continue;
+        fastpipe_push(pipe, &message, 1);
         printf("Sent %d\n", message);
         sent_messages++;
     }
