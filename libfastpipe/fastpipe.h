@@ -22,25 +22,18 @@ struct fastpipe {
     int fd;
     char name[MAX_FASTPIPE_NAME];
 
-    // Ring buffer metadata
-    uint32_t capacity;
-    uint32_t element_size;
-
     // Virtual ring buffer addresses
     struct fastpipe_ring *ring;
-    
 };
 
 /*
  * Create a new fastpipe.
  * Arguments:
  *     const char *name - The (unique) name of the fastpipe.
- *     uint32_t capacity - Max capacity of the fastpipe (must be power of two)
- *     uint32_t element_size - Size of elements in the fastpipe.
  * Returns:
  *     struct fastpipe * - Newly created fastpipe.
  */
-struct fastpipe *fastpipe_create(const char *name, uint32_t capacity, uint32_t element_size);
+struct fastpipe *fastpipe_create(const char *name);
 
 /*
  * Free up a fastpipe.
@@ -53,11 +46,13 @@ void fastpipe_destroy(struct fastpipe *fastpipe);
  * Bind a fastpipe to the current process.
  * Arguments:
  *     struct fastpipe *fastpipe - Bind this pipe.
+ *     uint32_t capacity - Max values in the fastpipe (must be a power of two).
+ *     uint32_t element_size - Size of the elements in the fastpipe.
  *     enum ROLE role - Bind from producer or consumer side.
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
-int fastpipe_bind(struct fastpipe *fastpipe, enum ROLE role);
+int fastpipe_bind(struct fastpipe *fastpipe, uint32_t capacity, uint32_t element_size, enum ROLE role);
 
 /*
  * Push a message to the fastpipe.

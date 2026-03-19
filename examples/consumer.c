@@ -9,13 +9,13 @@ int main(int argc, char **argv) {
     uint32_t element_size = sizeof(int);
     int err;
 
-    struct fastpipe *pipe = fastpipe_create("test", capacity, element_size);
+    struct fastpipe *pipe = fastpipe_create("test");
     if(!pipe) {
         perror("consumer: could not create fastpipe.");
         return -1;
     }
 
-    err = fastpipe_bind(pipe, CONSUMER);
+    err = fastpipe_bind(pipe, capacity, element_size, CONSUMER);
     if(err) {
         perror("consumer: could not bind fastpipe");
         fastpipe_destroy(pipe);
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < 512; i++) {
         int message;
-        fastpipe_pop(pipe, &message, 1);
+        fastpipe_pop(pipe, &message, 0);
         printf("Received %d\n", message);
     }
 

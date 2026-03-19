@@ -12,15 +12,10 @@
  * Create a new fastpipe.
  * Arguments:
  *     const char *name - The (unique) name of the fastpipe.
- *     uint32_t capacity - Max capacity of the fastpipe (must be power of two)
- *     uint32_t element_size - Size of elements in the fastpipe.
  * Returns:
  *     struct fastpipe * - Newly created fastpipe.
  */
-struct fastpipe *fastpipe_create(const char *name, uint32_t capacity, uint32_t element_size) {
-    // Ensure capacity is a power of two
-    assert((capacity & (capacity - 1)) == 0);
-
+struct fastpipe *fastpipe_create(const char *name) {
     char fastpipe_name[MAX_FASTPIPE_NAME] = { 0 };
     snprintf(fastpipe_name, MAX_FASTPIPE_NAME - 6, "/tmp/%s", name);
 
@@ -31,8 +26,6 @@ struct fastpipe *fastpipe_create(const char *name, uint32_t capacity, uint32_t e
 
     // Instantiate the new fastpipe
     memcpy(fastpipe->name, fastpipe_name, MAX_FASTPIPE_NAME);
-    fastpipe->capacity = capacity;
-    fastpipe->element_size = element_size;
 
     return fastpipe;
 }
@@ -62,14 +55,20 @@ void fastpipe_destroy(struct fastpipe *fastpipe) {
 /*
  * Bind a fastpipe to the current process.
  * Arguments:
- *     struct fastpipe *fastpipe - Bind this pipe.
+ *     struct fastpipe *fastpipe - Bind this fastpipe.
+ *     uint32_t capacity - Max values in the fastpipe (must be a power of two).
+ *     uint32_t element_size - Size of the elements in the fastpipe.
  *     enum ROLE role - Bind from producer or consumer side.
  * Returns:
  *     int - 0 on success, -1 on failure.
  */
-int fastpipe_bind(struct fastpipe *fastpipe, enum ROLE role) {
+int fastpipe_bind(struct fastpipe *fastpipe, uint32_t capacity, uint32_t element_size, enum ROLE role) {
     // Ensure valid fastpipe
     if(!fastpipe)
+        return -1;
+
+    // Ensure the capacity is a power of two
+    if(capacity & (capacity - 1) != 0)
         return -1;
 
     fastpipe->role = role;
@@ -78,12 +77,12 @@ int fastpipe_bind(struct fastpipe *fastpipe, enum ROLE role) {
     int fd = open(fastpipe->name, O_RDWR | O_CREAT | O_EXCL, 0666);
     if(fd > 0) {
         fastpipe->fd = fd;
-        fastpipe->ring = fastpipe_ring_create(fastpipe->fd, fastpipe->capacity, fastpipe->element_size, 1);
+        fastpipe->ring = fastpipe_ring_create(fastpipe->fd, capacity, element_size, 1);
     } else {
         fastpipe->fd = open(fastpipe->name, O_RDWR);
         if(fastpipe->fd < 0)
             return -1;
-        fastpipe->ring = fastpipe_ring_create(fastpipe->fd, fastpipe->capacity, fastpipe->element_size, 0);
+        fastpipe->ring = fastpipe_ring_create(fastpipe->fd, capacity, element_size, 0);
     }
 
     return fastpipe->ring ? 0 : -1;

@@ -19,10 +19,12 @@ int main(int argc, char **argv) {
         fastpipe_large_elapsed_time,
         fastpipe_large_zero_copy_time;
     pid_t pid;
+    struct fastpipe *fpipe;
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
     // Create a Linux pipe as a base test
     if(pipe(fd) == -1) return -1;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
     if((pid = fork()) == 0) {
         // Child: Read from pipe
         close(fd[1]);
@@ -49,28 +51,25 @@ int main(int argc, char **argv) {
 
     printf("Pipe Execution time: %f seconds\n", pipe_elapsed_time);
 
-    unlink("/tmp/test");
+    unlink("/tmp/int-pipe");
+    fpipe = fastpipe_create("int-pipe");
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     if((pid = fork()) == 0) {
         // Child process: Read from pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 15, sizeof(int));
-        fastpipe_bind(pipe, CONSUMER);
+        fastpipe_bind(fpipe, 1 << 15, sizeof(int), CONSUMER);
         int message;
         for(int i = 0; i < NUM_MESSAGES; i++) {
-            fastpipe_pop(pipe, &message, 1);
+            fastpipe_pop(fpipe, &message, 1);
         }
-        fastpipe_destroy(pipe);
         _exit(0);
     } else {
         // Parent process: Write to pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 15, sizeof(int));
-        fastpipe_bind(pipe, PRODUCER);
+        fastpipe_bind(fpipe, 1 << 15, sizeof(int), PRODUCER);
         int message;
         for(int i = 0; i < NUM_MESSAGES; i++) {
-            fastpipe_push(pipe, &i, 1);
+            fastpipe_push(fpipe, &i, 1);
         }
-        fastpipe_destroy(pipe);
         waitpid(pid, NULL, 0);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
@@ -78,68 +77,73 @@ int main(int argc, char **argv) {
         (end.tv_sec - start.tv_sec) +
         (end.tv_nsec - start.tv_nsec) / 1e9;
         
+    fastpipe_destroy(fpipe);
+
     printf("FastPipe Execution time: %f seconds\n", fastpipe_elapsed_time);
 
-    unlink("/tmp/test");
+    unlink("/tmp/int-pipe");
+
+    fpipe = fastpipe_create("int-pipe");
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     if((pid = fork()) == 0) {
         // Child process: Read from pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 15, sizeof(int));
-        fastpipe_bind(pipe, CONSUMER);
+        fastpipe_bind(fpipe, 1 << 15, sizeof(int), CONSUMER);
         int message;
         for(int i = 0; i < NUM_MESSAGES; i++) {
-            int *slot = fastpipe_peek(pipe);
+            int *slot = fastpipe_peek(fpipe);
             message = *slot;
-            fastpipe_release(pipe);
+            fastpipe_release(fpipe);
         }
-        fastpipe_destroy(pipe);
         _exit(0);
     } else {
         // Parent process: Write to pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 15, sizeof(int));
-        fastpipe_bind(pipe, PRODUCER);
+        fastpipe_bind(fpipe, 1 << 15, sizeof(int), PRODUCER);
         int message;
         for(int i = 0; i < NUM_MESSAGES; i++) {
-            int *slot = fastpipe_reserve(pipe);
+            int *slot = fastpipe_reserve(fpipe);
             message = *slot;
-            fastpipe_commit(pipe);
+            fastpipe_commit(fpipe);
         }
-        fastpipe_destroy(pipe);
         waitpid(pid, NULL, 0);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     fastpipe_zero_copy_time = 
         (end.tv_sec - start.tv_sec) +
         (end.tv_nsec - start.tv_nsec) / 1e9;
+
+    fastpipe_destroy(fpipe);
         
     printf("FastPipe Zero Copy Execution time: %f seconds\n", fastpipe_zero_copy_time);
 
 
-    unlink("/tmp/test");
+    unlink("/tmp/large-pipe");
 
+    fpipe = fastpipe_create("large-pipe");
     clock_gettime(CLOCK_MONOTONIC, &start);
     if((pid = fork()) == 0) {
         // Child process: Read from pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 10, LARGE_MESSAGE_SIZE);
-        fastpipe_bind(pipe, CONSUMER);
+        fastpipe_bind(fpipe, 1 << 10, LARGE_MESSAGE_SIZE, CONSUMER);
         char *message = malloc(LARGE_MESSAGE_SIZE);
         for(int i = 0; i < NUM_MESSAGES; i++) {
-            fastpipe_pop(pipe, message, 1);
+            fastpipe_pop(fpipe, message, 1);
+            char c = message[LARGE_MESSAGE_SIZE - 1];
+            if(c != 0) {
+                printf("Invalid value\n");
+                break;
+            }
         }
         free(message);
-        fastpipe_destroy(pipe);
         _exit(0);
     } else {
         // Parent process: Write to pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 10, LARGE_MESSAGE_SIZE);
-        fastpipe_bind(pipe, PRODUCER);
+        fastpipe_bind(fpipe, 1 << 10, LARGE_MESSAGE_SIZE, PRODUCER);
         char *message = malloc(LARGE_MESSAGE_SIZE);
+        message[LARGE_MESSAGE_SIZE - 1] = 0;
         for(int i = 0; i < NUM_MESSAGES; i++) {
-            fastpipe_push(pipe, message, 1);
+            fastpipe_push(fpipe, message, 1);
         }
         free(message);
-        fastpipe_destroy(pipe);
         waitpid(pid, NULL, 0);
     }
     
@@ -148,42 +152,43 @@ int main(int argc, char **argv) {
         (end.tv_sec - start.tv_sec) +
         (end.tv_nsec - start.tv_nsec) / 1e9;
 
-    unlink("/tmp/test");
+    fastpipe_destroy(fpipe);
+
+    unlink("/tmp/large-pipe");
 
     printf("Large Data FastPipe Execution time: %f seconds\n", fastpipe_large_elapsed_time);
     
+    fpipe = fastpipe_create("large-pipe");
     clock_gettime(CLOCK_MONOTONIC, &start);
     if((pid = fork()) == 0) {
         // Child process: Read from pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 10, LARGE_MESSAGE_SIZE);
-        fastpipe_bind(pipe, CONSUMER);
-        char *message = malloc(LARGE_MESSAGE_SIZE);
+        fastpipe_bind(fpipe, 1 << 10, LARGE_MESSAGE_SIZE, CONSUMER);
         for(int i = 0; i < LARGE_MESSAGES; i++) {
-            char *slot = fastpipe_peek(pipe);
-            *slot = *message;
-            fastpipe_release(pipe);
+            char *slot = fastpipe_peek(fpipe);
+            char c = slot[LARGE_MESSAGE_SIZE - 1];
+            fastpipe_release(fpipe);
+            if(c != 0) {
+                printf("Invalid value\n");
+                break;
+            }
         }
-        free(message);
-        fastpipe_destroy(pipe);
         _exit(0);
     } else {
         // Parent process: Write to pipe
-        struct fastpipe *pipe = fastpipe_create("test", 1 << 10, LARGE_MESSAGE_SIZE);
-        fastpipe_bind(pipe, PRODUCER);
-        char *message = malloc(LARGE_MESSAGE_SIZE);
+        fastpipe_bind(fpipe, 1 << 10, LARGE_MESSAGE_SIZE, PRODUCER);
         for(int i = 0; i < LARGE_MESSAGES; i++) {
-            char *slot = fastpipe_reserve(pipe);
-            *slot = *message;
-            fastpipe_commit(pipe);
+            char *slot = fastpipe_reserve(fpipe);
+            slot[LARGE_MESSAGE_SIZE - 1] = 0;
+            fastpipe_commit(fpipe);
         }
-        free(message);
-        fastpipe_destroy(pipe);
         waitpid(pid, NULL, 0);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     fastpipe_large_zero_copy_time = 
         (end.tv_sec - start.tv_sec) +
         (end.tv_nsec - start.tv_nsec) / 1e9;
+
+    fastpipe_destroy(fpipe);
 
     printf("Large Data FastPipe Zero Copy Execution time: %f seconds\n", fastpipe_large_zero_copy_time);
     return 0;
